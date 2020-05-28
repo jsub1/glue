@@ -160,6 +160,9 @@ def fits_reader(source, auto_merge=False, exclude_exts=None, label=None):
 
     return [groups[idx] for idx in groups]
 
+def fits_hdu_reader(data, label):
+    from astropy.io import fits
+    return fits_reader(fits.HDUList(data), label=label)
 
 # Utilities
 
@@ -227,9 +230,9 @@ def casalike_cube(filename, **kwargs):
         result.add_component(component, label='STOKES %i' % i)
     return result
 
-
 try:
     from astropy.io.fits import HDUList
+    from astropy.io.fits.hdu import PrimaryHDU, ImageHDU, CompImageHDU, TableHDU, BinTableHDU
 except ImportError:
     pass
 else:
@@ -238,3 +241,11 @@ else:
     def _parse_data_hdulist(data, label):
         from glue.core.data_factories.fits import fits_reader
         return fits_reader(data, label=label)
+
+    def _single_hdu_parser(data, label):
+        from glue.core.data_factories.fits import fits_hdu_reader
+        return fits_hdu_reader(data, label=label)
+
+    for hdu_type in [PrimaryHDU, ImageHDU, CompImageHDU, TableHDU, BinTableHDU]:
+        qglue_parser.add(hdu_type, _single_hdu_parser, priority=90)
+
