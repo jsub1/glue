@@ -37,48 +37,6 @@ def is_fits(filename):
     except IOError:
         return False
 
-def _load_table_hdu(hdu, label_base, extnum=0, suffix=True):
-    from astropy.table import Table
-    hdu_name = hdu.name if hdu.name else "HDU{0}".format(extnum)
-
-    # Loop through columns and make component list
-    table = Table.read(hdu, format='fits')
-    label = '{0}[{1}]'.format(label_base, hdu_name) if suffix else label_base
-    data = Data(label=label)
-    for column_name in table.columns:
-        column = table[column_name]
-        if column.ndim != 1:
-            warnings.warn("Dropping column '{0}' since it is not 1-dimensional".format(column_name))
-            continue
-        component = Component.autotyped(column, units=column.unit)
-        data.add_component(component=component,
-                           label=column_name)
-    print (data, data.components, label)
-    return data
-
-def _new_image_data(hdu, label_base, suffix=True):
-    if suffix:
-        hdu_name = hdu.name if hdu.name else "HDU{0}".format(extnum)
-        label = '{0}[{1}]'.format(label_base, hdu_name)
-    else:
-        label = label_base
-    data = Data(label=label)
-    data.coords = coordinates_from_header(hdu.header)
-
-    # We need to be careful here because some header values are special
-    # objects that we should convert to strings
-    for key, value in hdu.header.items():
-        if (key == 'COMMENT' or key == 'HISTORY'):
-            if key not in data.meta:
-                data.meta[key] = [str(value)]
-            else:
-                data.meta[key].append(str(value))
-        elif isinstance(value, str) or isinstance(value, (int, float, bool)):
-            data.meta[key] = value
-        else:
-            data.meta[key] = str(value)
-    return data
-
 
 @data_factory(
     label='FITS file',
@@ -106,7 +64,6 @@ def fits_reader(source, auto_merge=False, exclude_exts=None, label=None):
     """
 
     from astropy.io import fits
-    from astropy.table import Table
 
     exclude_exts = exclude_exts or []
 
@@ -146,31 +103,24 @@ def fits_reader(source, auto_merge=False, exclude_exts=None, label=None):
                 shape = hdu.data.shape
                 coords = coordinates_from_header(hdu.header)
                 units = hdu.header.get('BUNIT')
-                if not auto_merge or has_wcs(coords):
-                    data = _new_image_data(hdu, label_base, suffix=len(hdulist) > 1)
+                if auto_merge and not has_wcs(coords) and shape in extension_by_shape\
+                   and extension_by_shape[shape] in groups:
+                    data = groups[extension_by_shape[shape]]
+                else:
+                    data = new_image_data(hdu, label_base, extnum=extnum, suffix=len(hdulist) > 1)
                     groups[hdu_name] = data
                     extension_by_shape[shape] = hdu_name
-                else:
-                    try:
-                        data = groups[extension_by_shape[shape]]
-                    except KeyError:
-                        data = _new_image_data(hdu, label_base, suffix=len(hdulist) > 1)
-                        groups[hdu_name] = data
-                        extension_by_shape[shape] = hdu_name
                 component = Component.autotyped(hdu.data, units=units)
                 data.add_component(component=component,
                                    label=hdu_name)
             elif is_table_hdu(hdu):
-                groups[hdu_name] = _load_table_hdu(hdu, label_base, extnum=extnum)
+                groups[hdu_name] = load_table_hdu(hdu, label_base, extnum=extnum)
 
     if close_hdulist:
         hdulist.close()
 
     return [groups[idx] for idx in groups]
 
-def fits_hdu_reader(data, label):
-    from astropy.io import fits
-    return _load_single_hdu(data, label)
 
 # Utilities
 
@@ -188,6 +138,49 @@ def has_wcs(coords):
     return (isinstance(coords, WCSCoordinates) and
             any(axis['coordinate_type'] is not None
                 for axis in coords.get_axis_types()))
+
+
+def load_table_hdu(hdu, label_base, extnum=0, suffix=True):
+    from astropy.table import Table
+    hdu_name = hdu.name if hdu.name else "HDU{0}".format(extnum)
+
+    # Loop through columns and make component list
+    table = Table.read(hdu, format='fits')
+    label = '{0}[{1}]'.format(label_base, hdu_name) if suffix else label_base
+    data = Data(label=label)
+    for column_name in table.columns:
+        column = table[column_name]
+        if column.ndim != 1:
+            warnings.warn("Dropping column '{0}' since it is not 1-dimensional".format(column_name))
+            continue
+        component = Component.autotyped(column, units=column.unit)
+        data.add_component(component=component,
+                           label=column_name)
+    return data
+
+
+def new_image_data(hdu, label_base, extnum=0, suffix=True):
+    if suffix:
+        hdu_name = hdu.name if hdu.name else "HDU{0}".format(extnum)
+        label = '{0}[{1}]'.format(label_base, hdu_name)
+    else:
+        label = label_base
+    data = Data(label=label)
+    data.coords = coordinates_from_header(hdu.header)
+
+    # We need to be careful here because some header values are special
+    # objects that we should convert to strings
+    for key, value in hdu.header.items():
+        if (key == 'COMMENT' or key == 'HISTORY'):
+            if key not in data.meta:
+                data.meta[key] = [str(value)]
+            else:
+                data.meta[key].append(str(value))
+        elif isinstance(value, str) or isinstance(value, (int, float, bool)):
+            data.meta[key] = value
+        else:
+            data.meta[key] = str(value)
+    return data
 
 
 def is_casalike(filename, **kwargs):
@@ -238,6 +231,7 @@ def casalike_cube(filename, **kwargs):
         result.add_component(component, label='STOKES %i' % i)
     return result
 
+
 try:
     from astropy.io.fits import HDUList
     from astropy.io.fits.hdu import PrimaryHDU, ImageHDU, CompImageHDU, TableHDU, BinTableHDU
@@ -250,10 +244,22 @@ else:
         from glue.core.data_factories.fits import fits_reader
         return fits_reader(data, label=label)
 
-    def _single_hdu_parser(data, label):
-        from glue.core.data_factories.fits import fits_hdu_reader
-        return fits_hdu_reader(data, label=label)
+    def _parse_image_hdu(data, label):
+        from glue.core.data_factories.fits import new_image_data
+        label = label or data.name or "FITS Image"
+        data = new_image_data(data, label, False)
+        units = data.header.get('BUNIT')
+        component = Component.autotyped(data.data, units=units)
+        data.add_component(component=component,
+                           label=data.name)
 
-    for hdu_type in [PrimaryHDU, ImageHDU, CompImageHDU, TableHDU, BinTableHDU]:
-        qglue_parser.add(hdu_type, _single_hdu_parser, priority=90)
+    def _parse_table_hdu(data, label):
+        from glue.core.data_factories.fits import load_table_hdu
+        label = label or data.name or "FITS Table"
+        return load_table_hdu(data, label, suffix=False)
 
+    for hdu_type in [PrimaryHDU, ImageHDU, CompImageHDU]:
+        qglue_parser.add(hdu_type, _parse_image_hdu)
+
+    for hdu_type in [TableHDU, BinTableHDU]:
+        qglue_parser.add(hdu_type, _parse_table_hdu)
