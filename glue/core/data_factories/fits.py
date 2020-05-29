@@ -56,13 +56,14 @@ def _load_table_hdu(hdu, label_base, extnum=0, suffix=True):
     print (data, data.components, label)
     return data
 
-def _new_image_data(hdu, label_base, hdu_name, coords, suffix=True):
+def _new_image_data(hdu, label_base, suffix=True):
     if suffix:
+        hdu_name = hdu.name if hdu.name else "HDU{0}".format(extnum)
         label = '{0}[{1}]'.format(label_base, hdu_name)
     else:
         label = label_base
     data = Data(label=label)
-    data.coords = coords
+    data.coords = coordinates_from_header(hdu.header)
 
     # We need to be careful here because some header values are special
     # objects that we should convert to strings
@@ -146,14 +147,14 @@ def fits_reader(source, auto_merge=False, exclude_exts=None, label=None):
                 coords = coordinates_from_header(hdu.header)
                 units = hdu.header.get('BUNIT')
                 if not auto_merge or has_wcs(coords):
-                    data = _new_image_data(hdu, label_base, hdu_name, coords, suffix=len(hdulist) > 1)
+                    data = _new_image_data(hdu, label_base, suffix=len(hdulist) > 1)
                     groups[hdu_name] = data
                     extension_by_shape[shape] = hdu_name
                 else:
                     try:
                         data = groups[extension_by_shape[shape]]
                     except KeyError:
-                        data = _new_image_data(hdu, label_base, hdu_name, coords, suffix=len(hdulist) > 1)
+                        data = _new_image_data(hdu, label_base, suffix=len(hdulist) > 1)
                         groups[hdu_name] = data
                         extension_by_shape[shape] = hdu_name
                 component = Component.autotyped(hdu.data, units=units)
