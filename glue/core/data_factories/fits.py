@@ -37,6 +37,24 @@ def is_fits(filename):
     except IOError:
         return False
 
+def _load_table_hdu(hdu, label_base, extnum=0, suffix=True):
+    from astropy.table import Table
+    hdu_name = hdu.name if hdu.name else "HDU{0}".format(extnum)
+
+    # Loop through columns and make component list
+    table = Table.read(hdu, format='fits')
+    label = '{0}[{1}]'.format(label_base, hdu_name) if suffix else label_base
+    data = Data(label=label)
+    for column_name in table.columns:
+        column = table[column_name]
+        if column.ndim != 1:
+            warnings.warn("Dropping column '{0}' since it is not 1-dimensional".format(column_name))
+            continue
+        component = Component.autotyped(column, units=column.unit)
+        data.add_component(component=component,
+                           label=column_name)
+    print (data, data.components, label)
+    return data
 
 @data_factory(
     label='FITS file',
@@ -141,19 +159,7 @@ def fits_reader(source, auto_merge=False, exclude_exts=None, label=None):
                 data.add_component(component=component,
                                    label=hdu_name)
             elif is_table_hdu(hdu):
-                # Loop through columns and make component list
-                table = Table.read(hdu, format='fits')
-                label = '{0}[{1}]'.format(label_base, hdu_name)
-                data = Data(label=label)
-                groups[hdu_name] = data
-                for column_name in table.columns:
-                    column = table[column_name]
-                    if column.ndim != 1:
-                        warnings.warn("Dropping column '{0}' since it is not 1-dimensional".format(column_name))
-                        continue
-                    component = Component.autotyped(column, units=column.unit)
-                    data.add_component(component=component,
-                                       label=column_name)
+                groups[hdu_name] = _load_table_hdu(hdu, label_base, extnum=extnum)
 
     if close_hdulist:
         hdulist.close()
@@ -162,7 +168,7 @@ def fits_reader(source, auto_merge=False, exclude_exts=None, label=None):
 
 def fits_hdu_reader(data, label):
     from astropy.io import fits
-    return fits_reader(fits.HDUList(data), label=label)
+    return _load_single_hdu(data, label)
 
 # Utilities
 
