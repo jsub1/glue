@@ -56,6 +56,29 @@ def _load_table_hdu(hdu, label_base, extnum=0, suffix=True):
     print (data, data.components, label)
     return data
 
+def _new_image_data(hdu, label_base, hdu_name, coords, suffix=True):
+    if suffix:
+        label = '{0}[{1}]'.format(label_base, hdu_name)
+    else:
+        label = label_base
+    data = Data(label=label)
+    data.coords = coords
+
+    # We need to be careful here because some header values are special
+    # objects that we should convert to strings
+    for key, value in hdu.header.items():
+        if (key == 'COMMENT' or key == 'HISTORY'):
+            if key not in data.meta:
+                data.meta[key] = [str(value)]
+            else:
+                data.meta[key].append(str(value))
+        elif isinstance(value, str) or isinstance(value, (int, float, bool)):
+            data.meta[key] = value
+        else:
+            data.meta[key] = str(value)
+    return data
+
+
 @data_factory(
     label='FITS file',
     identifier=is_fits,
@@ -112,32 +135,6 @@ def fits_reader(source, auto_merge=False, exclude_exts=None, label=None):
         if not label_base:
             label_base = basename(hdulist_name)
 
-    # Create a new image Data.
-    def new_data(suffix=True):
-        if suffix:
-            label = '{0}[{1}]'.format(label_base, hdu_name)
-        else:
-            label = label_base
-        data = Data(label=label)
-        data.coords = coords
-
-        # We need to be careful here because some header values are special
-        # objects that we should convert to strings
-        for key, value in hdu.header.items():
-            if (key == 'COMMENT' or key == 'HISTORY'):
-                if key not in data.meta:
-                    data.meta[key] = [str(value)]
-                else:
-                    data.meta[key].append(str(value))
-            elif isinstance(value, str) or isinstance(value, (int, float, bool)):
-                data.meta[key] = value
-            else:
-                data.meta[key] = str(value)
-
-        groups[hdu_name] = data
-        extension_by_shape[shape] = hdu_name
-        return data
-
     for extnum, hdu in enumerate(hdulist):
         hdu_name = hdu.name if hdu.name else "HDU{0}".format(extnum)
         if (hdu.data is not None and
@@ -149,12 +146,16 @@ def fits_reader(source, auto_merge=False, exclude_exts=None, label=None):
                 coords = coordinates_from_header(hdu.header)
                 units = hdu.header.get('BUNIT')
                 if not auto_merge or has_wcs(coords):
-                    data = new_data(suffix=len(hdulist) > 1)
+                    data = _new_image_data(hdu, label_base, hdu_name, coords, suffix=len(hdulist) > 1)
+                    groups[hdu_name] = data
+                    extension_by_shape[shape] = hdu_name
                 else:
                     try:
                         data = groups[extension_by_shape[shape]]
                     except KeyError:
-                        data = new_data(suffix=len(hdulist) > 1)
+                        data = _new_image_data(hdu, label_base, hdu_name, coords, suffix=len(hdulist) > 1)
+                        groups[hdu_name] = data
+                        extension_by_shape[shape] = hdu_name
                 component = Component.autotyped(hdu.data, units=units)
                 data.add_component(component=component,
                                    label=hdu_name)
