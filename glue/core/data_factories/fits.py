@@ -156,7 +156,7 @@ def table_hdu_reader(source, label=None):
     label: str, optional
         A name for the new glue object. If none is specified the name in the HDU is used.
     """
-    label = label or data.name or 'FITS Table'
+    label = label or source.name or 'FITS Table'
     return [load_table_hdu(source, label, suffix=False)]
 
 
@@ -284,11 +284,11 @@ else:
 
     def _parse_image_hdu(data, label):
         from glue.core.data_factories.fits import image_hdu_reader
-        return image_hdu_reader(data,label=label)
+        return image_hdu_reader(data, label=label)
 
     def _parse_table_hdu(data, label):
         from glue.core.data_factories.fits import table_hdu_reader
-        return table_hdu_reader(data,label=label)
+        return table_hdu_reader(data, label=label)
 
     for hdu_type in [PrimaryHDU, ImageHDU, CompImageHDU]:
         qglue_parser.add(hdu_type, _parse_image_hdu)

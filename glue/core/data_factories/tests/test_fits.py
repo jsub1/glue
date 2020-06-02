@@ -34,7 +34,7 @@ def _test_image_hdu_cls(cls):
     assert len(d) == 1
     glue_data = d[0]
     assert glue_data.label == 'Test Label'
-    assert glue_data.shape == (3,4)
+    assert glue_data.shape == (3, 4)
     assert len(glue_data.main_components) == 1
     assert_array_equal(glue_data['TEST IMAGE'], data)
 
@@ -256,14 +256,14 @@ def test_load_table_hdu():
     from astropy.io import fits
     from astropy.table import Table
     t = Table()
-    t['a'] = [1,2,3]
-    t['b'] = [4,5,6]
-    t['c'] = [7,8,9]
-    hdu  = fits.table_to_hdu(t)
+    t['a'] = [1, 2, 3]
+    t['b'] = [4, 5, 6]
+    t['c'] = [7, 8, 9]
+    hdu = fits.table_to_hdu(t)
     d = table_hdu_reader(hdu, label='test table')
     assert len(d) == 1
     glue_data = d[0]
     assert glue_data.shape == (3,)
-    assert_array_equal(glue_data['a'], np.array([1,2,3]))
-    assert_array_equal(glue_data['b'], np.array([4,5,6]))
-    assert_array_equal(glue_data['c'], np.array([7,8,9]))
+    assert_array_equal(glue_data['a'], np.array([1, 2, 3]))
+    assert_array_equal(glue_data['b'], np.array([4, 5, 6]))
+    assert_array_equal(glue_data['c'], np.array([7, 8, 9]))
