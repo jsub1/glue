@@ -141,7 +141,7 @@ def image_hdu_reader(source, label=None):
     component = Component.autotyped(source.data, units=units)
     data.add_component(component=component,
                        label=source.name or 'data')
-    return data
+    return [data]
 
 
 def table_hdu_reader(source, label=None):
@@ -157,7 +157,7 @@ def table_hdu_reader(source, label=None):
         A name for the new glue object. If none is specified the name in the HDU is used.
     """
     label = label or data.name or 'FITS Table'
-    return load_table_hdu(source, label, suffix=False)
+    return [load_table_hdu(source, label, suffix=False)]
 
 
 # Utilities
