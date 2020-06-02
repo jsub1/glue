@@ -10,7 +10,7 @@ from glue.core import data_factories as df
 
 from glue.tests.helpers import requires_astropy, make_file
 
-from ..fits import fits_reader
+from ..fits import fits_reader, image_hdu_reader, table_hdu_reader
 
 
 DATA = os.path.join(os.path.dirname(__file__), 'data')
@@ -24,6 +24,18 @@ def _assert_equal_expected(actual, expected):
         e = expected[d.label]
         assert e.shape == d.shape
         assert e.ndim == d.ndim
+
+
+def _test_image_hdu_cls(cls):
+    data = np.ones((3, 4))
+    hdu = cls(data)
+    hdu.name = 'Test Image'
+    d = image_hdu_reader(hdu, label='Test Label')
+    print(d)
+    assert d.label == 'Test Label'
+    assert d.shape == (3,4)
+    assert len(d.main_components) == 1
+    assert_array_equal(d['TEST IMAGE'], data)
 
 
 @requires_astropy
@@ -228,3 +240,28 @@ def test_coordinate_component_units():
     assert d.get_component(wid[2]).units == 'deg'
     assert wid[3].label == 'Right Ascension'
     assert d.get_component(wid[3]).units == 'deg'
+
+
+@requires_astropy
+def test_load_image_hdus():
+    from astropy.io import fits
+    _test_image_hdu_cls(fits.PrimaryHDU)
+    _test_image_hdu_cls(fits.ImageHDU)
+    _test_image_hdu_cls(fits.CompImageHDU)
+
+
+@requires_astropy
+def test_load_table_hdu():
+    from astropy.io import fits
+    from astropy.table import Table
+    t = Table()
+    t['a'] = [1,2,3]
+    t['b'] = [4,5,6]
+    t['c'] = [7,8,9]
+    hdu  = fits.table_to_hdu(t)
+    d = table_hdu_reader(hdu, label='test table')
+    assert d.shape == (3,)
+    print(d)
+    assert_array_equal(d['a'], np.array([1,2,3]))
+    assert_array_equal(d['b'], np.array([4,5,6]))
+    assert_array_equal(d['c'], np.array([7,8,9]))

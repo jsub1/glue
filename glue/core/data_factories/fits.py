@@ -7,7 +7,8 @@ from glue.core.coordinates import coordinates_from_header, WCSCoordinates
 from glue.core.data import Component, Data
 from glue.config import data_factory, qglue_parser
 
-__all__ = ['is_fits', 'fits_reader', 'is_casalike', 'casalike_cube']
+__all__ = ['is_fits', 'fits_reader', 'image_hdu_reader', 'table_hdu_reader',
+           'is_casalike', 'casalike_cube']
 
 
 def is_fits(filename):
@@ -120,6 +121,43 @@ def fits_reader(source, auto_merge=False, exclude_exts=None, label=None):
         hdulist.close()
 
     return [groups[idx] for idx in groups]
+
+
+def image_hdu_reader(source, label=None):
+    """
+    Read in a single FITS image HDU and convert it to a glue data object.
+
+    Parameters
+    ----------
+    source: PrimaryHDU, ImageHDU or CompImageHDU
+        The astropy HDU to convert to a data object.
+
+    label: str, optional
+        A name for the new glue object. If none is specified the name in the HDU is used.
+    """
+    label = label or source.name or 'FITS Image'
+    data = new_image_data(source, label, suffix=False)
+    units = source.header.get('BUNIT')
+    component = Component.autotyped(source.data, units=units)
+    data.add_component(component=component,
+                       label=source.name or 'data')
+    return data
+
+
+def table_hdu_reader(source, label=None):
+    """
+    Read in a single FITS table HDU and convert it to a glue data object.
+
+    Parameters
+    ----------
+    source: TableHDU, BinTableHDU
+        The astropy HDU to convert to a data object.
+
+    label: str, optional
+        A name for the new glue object. If none is specified the name in the HDU is used.
+    """
+    label = label or data.name or 'FITS Table'
+    return load_table_hdu(source, label, suffix=False)
 
 
 # Utilities
@@ -245,18 +283,12 @@ else:
         return fits_reader(data, label=label)
 
     def _parse_image_hdu(data, label):
-        from glue.core.data_factories.fits import new_image_data
-        label = label or data.name or "FITS Image"
-        data = new_image_data(data, label, False)
-        units = data.header.get('BUNIT')
-        component = Component.autotyped(data.data, units=units)
-        data.add_component(component=component,
-                           label=data.name)
+        from glue.core.data_factories.fits import image_hdu_reader
+        return image_hdu_reader(data,label=label)
 
     def _parse_table_hdu(data, label):
-        from glue.core.data_factories.fits import load_table_hdu
-        label = label or data.name or "FITS Table"
-        return load_table_hdu(data, label, suffix=False)
+        from glue.core.data_factories.fits import table_hdu_reader
+        return table_hdu_reader(data,label=label)
 
     for hdu_type in [PrimaryHDU, ImageHDU, CompImageHDU]:
         qglue_parser.add(hdu_type, _parse_image_hdu)
