@@ -1370,6 +1370,7 @@ class Data(BaseCartesianData):
     def get_kind(self, cid):
 
         comp = self.get_component(cid)
+        print(comp, self.label, cid.parent.label, cid.label, comp.datetime, comp.numeric, comp.categorical)
 
         if comp.datetime:
             return 'datetime'

@@ -158,6 +158,7 @@ class HistogramViewerState(MatplotlibDataViewerState):
                 layer = layer_state.layer.data
 
             try:
+                print(cid.label, '*'*25)
                 kinds.add(layer.data.get_kind(cid))
             except IncompatibleAttribute:
                 pass

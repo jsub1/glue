@@ -177,6 +177,7 @@ class DerivedComponent(Component):
 
         :param units: Optional unit description
         """
+        print(link)
         super(DerivedComponent, self).__init__(data, units=units)
         self._link = link
 
@@ -193,6 +194,21 @@ class DerivedComponent(Component):
     def link(self):
         """ Return the component link """
         return self._link
+
+    @property
+    def numeraic(self):
+        to_id = self._link.get_to_id()
+        return to_id.parent.get_kind(to_id) == 'numerical'
+
+    @property
+    def categorical(self):
+        to_id = self._link.get_to_id()
+        return to_id.parent.get_kind(to_id) == 'categorical'
+
+    @property
+    def datetime(self):
+        to_id = self._link.get_to_id()
+        return to_id.parent.get_kind(to_id) == 'datetime'
 
     def __getitem__(self, key):
         return self._link.compute(self._data, key)
