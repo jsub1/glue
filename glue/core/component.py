@@ -177,7 +177,6 @@ class DerivedComponent(Component):
 
         :param units: Optional unit description
         """
-        print(link)
         super(DerivedComponent, self).__init__(data, units=units)
         self._link = link
 
@@ -187,8 +186,13 @@ class DerivedComponent(Component):
 
     @property
     def data(self):
-        """ Return the numerical data as a numpy array """
-        return self._link.compute(self._data)
+        """ Return the numerical data as a numpy array and the categorical data as a categorical array"""
+        if self.categorical:
+            raw = self._link.compute(self._data)
+            categories = self._link.get_to_id().parent.get_component(self._link.get_to_id()).categories
+            return categorical_ndarray(raw, categories=categories, copy=False)
+        else:
+            return self._link.compute(self._data)
 
     @property
     def link(self):
